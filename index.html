@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+
+  <title>HFT IPR Node.js REST</title>
+
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <script async src="https://production-assets.codepen.io/assets/embed/ei.js"></script>
+</head>
+
+<body>
+  <div class="reveal">
+    <div class="slides">
+      <section data-background-image="https://media.giphy.com/media/xThuWu82QD3pj4wvEQ/giphy.gif">
+        <h1 class="title">IPR</h1>
+        <h3 class="title">Node.js REST APIs</h3>
+      </section>
+
+      <!-- Setup -->
+      <section>
+        <section data-auto-animate data-background-size="cover"
+          data-background-image="https://media.giphy.com/media/VbnUQpnihPSIgIXuZv/giphy.gif">
+          <h3 class="title">Ordnerstruktur</h3>
+        </section>
+        <section data-auto-animate>
+          <h3>Ordnerstruktur</h3>
+          <pre><code class="bash" data-trim data-noescape data-line-numbers><script type="text/template">
+            ├── Readme.md
+            ├── docker
+            │   └── docker-compose.yml
+            ├── jest.setup.js
+            ├── package-lock.json
+            ├── package.json
+            ├── .swcrc
+            ├── src
+            │   ├── config
+            │   │   ├── env.js
+            │   │   └── express.js
+            │   ├── index.js
+            │   ├── index.routes.js
+            └── story
+                ├── story.handler.js
+                └── story.repository.js
+          </script></code></pre>
+        </section>
+        <section data-auto-animate>
+          <h3>.swcrc</h3>
+          <pre><code class="json" data-trim data-noescape data-line-numbers><script type="text/template">
+           {
+            "jsc": {
+              "parser": {
+                "syntax": "ecmascript"
+              }
+            },
+            "env": {
+              "targets": {
+                "node": 17
+              }
+            },
+            "sourceMaps": true,
+            "inlineSourcesContent": true,
+            "module": {
+              "type": "commonjs"
+            }
+          }
+          </script></code></pre>
+        </section>
+        <section data-auto-animate>
+          <h3>package.js</h3>
+          <pre><code class="json" data-trim data-noescape data-line-numbers><script type="text/template">
+            {
+              "name": "crap-stories-node",
+              "version": "1.0.0",
+              "description": "",
+              "engines": {
+                "node": ">=17.x",
+                "npm": ">=8.x"
+              },
+              "main": "index.js",
+              "scripts": {
+                "start": "npm run build && node dist/index.js",
+                "start:inspect": "npm run build && node --inspect dist/index.js",
+                "start:watch": "nodemon --exec yarn start:inspect",
+                "test": "jest --coverage --watch --runInBand",
+                "test:ci": "jest --coverage --watchAll=false --runInBand",
+                "build": "swc src -d dist",
+                "heroku-postbuild": "yarn build && npm run migrate",
+                "lint": "eslint src/**/*.js"
+              },
+              "eslintConfig": {
+                "env": {
+                  "node": true,
+                  "es2021": true,
+                  "jest": true
+                },
+                "extends": "eslint:recommended",
+                "parserOptions": {
+                  "ecmaVersion": "latest",
+                  "sourceType": "module"
+                },
+                "rules": {}
+              },
+              "author": "",
+              "license": "WTFPL",
+              "dependencies": {
+                "@hapi/joi": "17.1.1",
+                "body-parser": "1.20.0",
+                "compression": "1.7.4",
+                "consola": "2.15.3",
+                "cors": "2.8.5",
+                "dotenv": "16.0.0",
+                "express": "4.17.3",
+                "express-joi-validation": "5.0.1",
+                "http-status": "1.5.0",
+                "knex": "1.0.5",
+                "pg": "8.7.3",
+                "uuid": "8.3.2"
+              },
+              "devDependencies": {
+                "@swc-node/register": "1.4.2",
+                "@swc/cli": "0.1.57",
+                "@swc/core": "1.2.165",
+                "@swc/jest": "0.2.20",
+                "eslint": "8.13.0",
+                "jest": "27.5.1",
+                "nodemon": "2.0.15",
+                "prettier": "2.6.2",
+                "supertest": "6.2.2"
+              },
+              "jest": {
+                "transform": {
+                  "^.+\\.(t|j)s?$": [
+                    "@swc/jest"
+                  ]
+                },
+                "testEnvironment": "node",
+                "coveragePathIgnorePatterns": [
+                  "node_modules/",
+                  "src/config/"
+                ],
+                "watchPathIgnorePatterns": [
+                  "node_modules/",
+                  "src/config/",
+                  "dist/",
+                  "coverage/"
+                ],
+                "coverageThreshold": {
+                  "global": {
+                    "branches": 75,
+                    "functions": 75,
+                    "lines": 75,
+                    "statements": 75
+                  }
+                },
+                "coverageReporters": [
+                  "cobertura",
+                  "json",
+                  "lcov",
+                  "text"
+                ],
+                "testRegex": "(/__tests__/.*|(\\.|/)(test|spec))\\.js?$",
+                "setupFilesAfterEnv": [
+                  "./jest.setup.js"
+                ]
+              },
+              "prettier": {
+                "printWidth": 140
+              }
+            }                       
+          </script></code></pre>
+        </section>
+        <section data-auto-animate>
+          <h3>index.js</h3>
+          <pre><code class="bash" data-trim data-noescape data-line-numbers><script type="text/template">
+            # env vars auslesen installieren
+            npm i dotenv
+          </script></code></pre>
+          <pre><code class="js" data-trim data-noescape data-line-numbers><script type="text/template">
+            /* istanbul ignore file */
+            import "dotenv/config";
+            import env from "./config/env.js";
+            import app from "./config/express";
+            import consola from "consola";
+            
+            const server = app.listen(env.port, async () => {
+              consola.info(`🚀 Server listening on port http://localhost:${env.port}`);
+            });
+            
+            process
+              .on("SIGTERM", shutdown("SIGTERM"))
+              .on("SIGINT", shutdown("SIGINT"))
+              .on("uncaughtException", shutdown("uncaughtException"));
+            
+            function shutdown(signal) {
+              return (err) => {
+                consola.info(`${signal} signal received. Going to close the server...`);
+            
+                server.close(() => {
+                  consola.info("Http server closed successfully.");
+                });
+            
+                if (err) {
+                  consola.error(err.stack || err);
+                }
+                setTimeout(() => {
+                  consola.info("...waited 5s, exiting.");
+                  process.exit(err ? 1 : 0);
+                }, 5000).unref();
+              };
+            }
+            
+            export default server;            
+          </script></code></pre>
+        </section>
+        <section data-auto-animate>
+          <h3>env.js</h3>
+          <pre><code class="js" data-trim data-noescape data-line-numbers><script type="text/template">
+            import Joi from "joi";
+            import packageJson from "../../package.json";
+
+            // define validation for all the env vars
+            const envVarsSchema = Joi.object({
+              NODE_ENV: Joi.string().default("development"),
+              PORT: Joi.number().default(3001),
+              LOG_LEVEL: Joi.string().default("debug"),
+              SOURCE_VERSION: Joi.string().default(
+                process.env.HEROKU_SLUG_COMMIT
+                  ? process.env.HEROKU_SLUG_COMMIT.substring(0, 7)
+                  : "?????"
+              ),
+              DB_HOST: Joi.string(),
+              CORS_URLS: Joi.string().default("https://app.neurolabs.ai"),
+            })
+              .unknown()
+              .required();
+
+            const { error, value: envVars } = envVarsSchema.validate(process.env);
+
+            if (error) {
+              throw new Error(`Config validation error: ${error.message}`);
+            }
+
+            const config = {
+              env: envVars.NODE_ENV,
+              port: envVars.PORT,
+              version: packageJson.version,
+              commitHash: envVars.SOURCE_VERSION,
+              dbHost: envVars.DB_HOST,
+              logLevel: envVars.LOG_LEVEL,
+              corsUrls: envVars.CORS_URLS.split(" "),
+            };
+
+            export default config;
+          </script></code></pre>
+        </section>
+      </section>
+
+      <!-- express -->
+      <section>
+        <section data-auto-animate data-background-size="cover"
+          data-background-image="https://media.giphy.com/media/hpEfWyx4W2dGU4kPbz/giphy.gif">
+          <h3 class="title">Express Config</h3>
+        </section>
+        <section data-auto-animate>
+          <h3>Express</h3>
+          <blockquote>Fast, unopinionated, minimalist web framework for Node.js</blockquote>
+        </section>
+        <section data-auto-animate>
+          <h3>env/express.js</h3>
+          <pre><code class="js" data-trim data-noescape data-line-numbers><script type="text/template">
+            import { json, urlencoded } from "body-parser";
+            import compress from "compression";
+            import cors from "cors";
+            import express from "express";
+            import routes from "./../index.routes";
+            import config from "./env";
+
+            const isProd = config.env === "production";
+
+            const app = express();
+            const { corsUrls: allowedUrlList } = config;
+
+            const corsOptions = {
+              origin: function (origin, callback) {
+                if (
+                  allowedUrlList.includes(origin) ||
+                  allowedUrlList.includes("*") ||
+                  !isProd
+                ) {
+                  callback(null, true);
+                } else {
+                  callback(new Error("Not allowed by CORS"));
+                }
+              },
+            };
+
+            app.use(cors(corsOptions));
+            app.use(json());
+            app.use(urlencoded({ extended: true }));
+            app.use(compress());
+
+            app.use("/", routes);
+
+            export default app;
+
+          </script></code></pre>
+        </section>
+        <section data-auto-animate>
+          <h3>index.routes.js</h3>
+          <pre><code class="js" data-trim data-noescape data-line-numbers><script type="text/template">
+            import { Router } from "express";
+            import httpStatus from "http-status";
+            import config from "./config/env";
+            
+            const router = Router();
+            
+            router.get("/health", (req, res) => res.status(httpStatus.OK).send());
+            
+            router.get("/version", (req, res) => {
+              res.json({
+                version: config.version,
+                commitHash: config.commitHash,
+              });
+            });
+            
+            // router.use('/stories', storyRoutes)
+            
+            export default router;            
+          </script></code></pre>
+        </section>
+        <section data-auto-animate>
+          <h3>index.routes.spec.js</h3>
+          <pre><code class="js" data-trim data-noescape data-line-numbers><script type="text/template">
+            import request from "supertest";
+
+            let app;
+
+            describe("Index Route", () => {
+              beforeAll(() => {
+                app = require("../config/express").default;
+              });
+
+              it("/health should return 200", async () => {
+                await expect(request(app).get("/health")).resolves.toHaveProperty("status", 200);
+              });
+
+              it("/version should return a json based on ENV files", async () => {
+                const response = await request(app).get("/version");
+
+                expect(response.status).toBe(200);
+                expect(response.body).toHaveProperty("version");
+                expect(response.body).toHaveProperty("commitHash");
+              });
+            });
+          </script></code></pre>
+        </section>
+        <section data-auto-animate>
+          <h3>Express Middleware</h3>
+          <pre><code class="js" data-trim data-noescape data-line-numbers><script type="text/template">
+            import ApiError from "../exception/ApiError";
+            import config from "../config/env";
+            import consola from "consola";
+
+            export default (err, req, res, next) => {
+              const apiError = new ApiError(err.message, err.status, err.stack);
+
+              consola.error(apiError);
+
+              if (res.headersSent) {
+                return next(apiError);
+              }
+
+              res
+                .status(apiError.status)
+                .json({
+                  status: apiError.status,
+                  message: apiError.message,
+                  ...(config.env === "development" && { stack: apiError.stack }),
+                })
+                .end();
+            };
+          </script></code></pre>
+        </section>
+        <section data-auto-animate>
+          <h3>Express Helper Class</h3>
+          <pre><code class="js" data-trim data-noescape data-line-numbers><script type="text/template">
+            import httpStatus from "http-status";
+
+            export default class ApiError extends Error {
+              status;
+              stack = "";
+            
+              /**
+               * @param  {String}  message:  string        [description]
+               * @param  {Number}  status:   number        HTTP Status Code use httpStatus
+               * @param  {String}  stack:    string        Stacktrace
+               */
+              constructor(message, status = httpStatus.INTERNAL_SERVER_ERROR, stack = "") {
+                super(message);
+                this.name = this.constructor.name;
+                this.message = message;
+                this.status = status;
+                this.stack = stack;
+            
+                if (stack) {
+                  this.stack = stack;
+                } else {
+                  Error.captureStackTrace(this);
+                }
+              }
+            }            
+          </script></code></pre>
+        </section>
+        <section data-auto-animate>
+          <h3>Express Middleware Test</h3>
+          <pre><code class="js" data-trim data-noescape data-line-numbers><script type="text/template">
+            import request from "supertest";
+            import ApiErrorMiddleware from "../ApiError";
+
+            let app;
+
+            jest.mock("consola");
+
+            describe("ApiError Middleware", () => {
+              beforeAll(() => {
+                app = require("../../config/express").default;
+                app.get("/test-route", (req, res, next) => {
+                  throw new Error("🔥");
+                });
+
+                app.use(ApiErrorMiddleware);
+              });
+
+              it("should run", async () => {
+                const response = await request(app).get("/test-route");
+
+                expect(response.status).toBe(500);
+                expect(response.body.message).toBe("🔥");
+              });
+            });
+
+          </script></code></pre>
+        </section>
+      </section>
+
+      <!-- datenbank -->
+      <section>
+        <section data-auto-animate data-background-size="cover"
+          data-background-image="https://media.giphy.com/media/kPrlykW2TpVU4HWx2O/giphy.gif">
+          <h3 class="title">Datenbank</h3>
+          <small class="white">npm i knex pg</small>
+        </section>
+        <section data-auto-animate>
+          <h3>.env</h3>
+          <pre><code class="bash" data-trim data-noescape data-line-numbers><script type="text/template">
+            NODE_ENV=development
+            PORT=3001
+            LOG_LEVEL=debug
+            DB_HOST=postgresql://hft:hft@localhost/hft
+            PGSSLMODE=disable
+          </script></code></pre>
+        </section>
+        <section data-auto-animate>
+          <h3>docker-compose</h3>
+          <pre><code class="yml" data-trim data-noescape data-line-numbers><script type="text/template">
+            version: "3"
+            services:
+              postgres:
+                container_name: crap-stories-postgres
+                image: postgres:14.2
+                ports:
+                  - 5433:5432
+                environment:
+                  - POSTGRES_PASSWORD=hft
+                  - POSTGRES_USER=hft
+                restart: always
+          </script></code></pre>
+        </section>
+        <section data-auto-animate>
+          <h3>env/knex.js</h3>
+          <pre><code class="yml" data-trim data-noescape data-line-numbers><script type="text/template">
+            import config from "./env";
+            import Knex from "knex";
+            const isProd = config.env === "production";
+            
+            export const conf = {
+              client: "pg",
+              connection: config.dbHost,
+              ssl: isProd ? true : false,
+              pool: {
+                min: 2,
+                max: 10,
+              },
+              migrations: {
+                tableName: "knex_migrations",
+              },
+            };
+            
+            const db = Knex(conf);
+            
+            export default db;
+          </script></code></pre>
+        </section>
+        <section data-auto-animate>
+          <h3>knexfile.js</h3>
+          <pre><code class="yml" data-trim data-noescape data-line-numbers><script type="text/template">
+            const isProd = process.env.NODE_ENV === "production";
+
+            const config = {
+              client: "pg",
+              connection: process.env.DB_HOST,
+              ssl: isProd ? true : false,
+              pool: {
+                min: 2,
+                max: 10,
+              },
+              migrations: {
+                tableName: "knex_migrations",
+              },
+            };
+
+            module.exports = config;
+                  
+          </script></code></pre>
+        </section>
+        <section data-auto-animate>
+          <h3>Datenbank Migration</h3>
+          <ul>
+            <li>Wir wollen die Datenbank "versionieren"</li>
+            <li>Es ist "verboten" auf der DB direkt Änderungen vorzunehmen</li>
+            <li>Alle developer haben den gleichen Stand</li>
+          </ul>
+        </section>
+        <section data-auto-animate>
+          <h3>Datenbank Migration</h3>
+          <pre><code class="bash" data-trim data-noescape data-line-numbers><script type="text/template">
+            # env vars auslesen installieren
+            npm i dotenv-flow
+            
+            # scw node installieren
+            npm i -D @swc-node/register
+
+            # migration
+            node -r @swc-node/register node_modules/.bin/knex migrate:make table_name
+          </script></code></pre>
+        </section>
+        <section data-auto-animate>
+          <h3>Datenbank Migration</h3>
+          <pre><code class="js" data-trim data-noescape data-line-numbers><script type="text/template">
+            export async function up(knex) {
+              await knex.schema.createTable("story", (table) => {
+                table.bigIncrements("id").primary();
+                table.string("title").notNullable();
+                table.string("imageUrl").notNullable();
+                table.timestamps(true, true);
+              });
+            }
+            
+            export async function down(knex) {
+              await knex.schema.dropTable("story");
+            }            
+          </script></code></pre>
+        </section>
+        <section data-auto-animate>
+          <h3>Datenbank Migration</h3>
+          <pre><code class="bash" data-trim data-noescape data-line-numbers><script type="text/template">
+            # Die Migrationen laufen lassen
+            node -r @swc-node/register node_modules/.bin/knex migrate:latest
+            
+          </script></code></pre>
+        </section>
+        <section data-auto-animate>
+          <h3>Datenbank Seeds</h3>
+          <pre><code class="yml" data-trim data-noescape data-line-numbers><script type="text/template">
+            export async function seed(knex) {
+              await knex("story").del();
+              
+              await knex("story").insert({
+                title: "a test story",
+                imageUrl: "https://picsum.photos/300",
+              });
+              
+              await knex("story").insert({
+                title: "another story",
+                imageUrl: "https://picsum.photos/1440",
+              });
+            }            
+          </script></code></pre>
+        </section>
+        <section data-auto-animate>
+          <h3>Datenbank Seeds</h3>
+          <pre><code class="bash" data-trim data-noescape data-line-numbers><script type="text/template">
+            # Die Migrationen laufen lassen
+            node -r @swc-node/register node_modules/.bin/knex seed:run
+            
+          </script></code></pre>
+        </section>
+        <section data-auto-animate>
+          <h3>Datenbank Seeds</h3>
+          <pre><code class="bash" data-trim data-noescape data-line-numbers><script type="text/template">
+            # Die Migrationen laufen lassen
+            node -r @swc-node/register node_modules/.bin/knex seed:run
+            
+          </script></code></pre>
+        </section>
+      </section>
+
+      <section>
+        <section data-auto-animate data-background-size="cover"
+          data-background-image="https://media.giphy.com/media/YO3icZKE2G8OoGHWC9/giphy.gif">
+          <h3 class="title">Express Handler</h3>
+        </section>
+        <section data-auto-animate>
+          <h3>jest.setup.js</h3>
+          <pre><code class="js" data-trim data-noescape data-line-numbers><script type="text/template">
+            import "dotenv/config";
+            import knex from "./src/config/knex";
+            
+            beforeAll(() => {
+              global.app = require("./src/config/express").default;
+            });
+            afterAll(async () => {
+              knex.destroy();
+            });
+          </script></code></pre>
+        </section>
+        <section data-auto-animate>
+          <h3>story.create.spec.js</h3>
+          <pre><code class="js" data-trim data-noescape data-line-numbers><script type="text/template">
+            import request from "supertest";
+            import knex from "../../config/knex";
+
+            describe("Story Create Route", () => {
+              beforeAll(async () => {
+                await knex("story").del();
+              });
+
+              it("/story POST should create a new story", async () => {
+                const response = await request(global.app).post("/story").send({ title: "test", imageUrl: "test url" });
+
+                expect(response.status).toBe(200);
+                expect(response.body).toMatchObject({ title: "test", imageUrl: "test url" });
+              });
+            });
+
+          </script></code></pre>
+        </section>
+        <section data-auto-animate>
+          <h3>Validation</h3>
+          <pre><code class="bash" data-trim data-noescape data-line-numbers><script type="text/template">
+            npm i @hapi/joi express-joi-validation
+          </script></code></pre>
+        </section>
+        <section data-auto-animate>
+          <h3>story.routes.js</h3>
+          <pre><code class="js" data-trim data-noescape data-line-numbers><script type="text/template">
+            import { Router } from "express";
+            import { getStories, getStory, createStory } from "./story.handler";
+            import { createValidator } from "express-joi-validation";
+            import { createStoryValidation } from "./story.validation";
+
+            const validator = createValidator();
+            const router = Router();
+
+            router.route("/").get(getStories).post(validator.body(createStoryValidation), createStory);
+            router.route("/:uuid").get(getStory);
+
+            export default router;
+
+          </script></code></pre>
+        </section>
+        <section data-auto-animate>
+          <h3>story.validation.js</h3>
+          <pre><code class="js" data-trim data-noescape data-line-numbers><script type="text/template">
+            import Joi from "@hapi/joi";
+
+            export const createStoryValidation = Joi.object({
+              title: Joi.string().required(),
+              imageUrl: Joi.string().required(),
+            });
+          </script></code></pre>
+        </section>
+        <section data-auto-animate>
+          <h3>story.repository.js</h3>
+          <pre><code class="js" data-trim data-noescape data-line-numbers><script type="text/template">
+            import httpStatus from "http-status";
+            import ApiError from "../exception/ApiError";
+            import PostgresDataSource from "../postgres.datasource";
+            import { v4 as uuid } from "uuid";
+            
+            const storyColums = ["id", "uuid", "title", "imageUrl", "created_at", "updated_at"];
+            
+            export default class StoryRepository extends PostgresDataSource {
+              tableName = "story";
+            
+              async getStories() {
+                const stories = await this.knex(this.tableName).select(storyColums);
+            
+                return stories;
+              }
+            
+              async getStory(uuid) {
+                const story = await this.knex(this.tableName).select(storyColums).where({ uuid }).first();
+            
+                if (!story) {
+                  throw new ApiError(`Story with '${uuid}' does not exist`, httpStatus.NOT_FOUND);
+                }
+            
+                return story;
+              }
+            
+              async createStory({ title, imageUrl }) {
+                return await this.knex(this.tableName).insert({ uuid: uuid(), title, imageUrl }).returning(storyColums);
+              }
+            }
+          </script></code></pre>
+        </section>
+        <section data-auto-animate>
+          <h3>story.handler.js</h3>
+          <pre><code class="js" data-trim data-noescape data-line-numbers><script type="text/template">
+            import StoryRepository from "./story.repository";
+            import consola from "consola";
+
+            export async function createStory(req, res, next) {
+              try {
+                const storyRepository = new StoryRepository();
+                const { title, imageUrl } = req.body;
+                const story = await storyRepository.createStory({ title, imageUrl });
+                story.map((u) => delete u.id);
+
+                res.json(story[0]);
+              } catch (err) {
+                consola.error(err);
+                next(err);
+              }
+            }
+          </script></code></pre>
+        </section>
+      </section>
+
+      <!-- Frontend -->
+      <!-- <section>
+        <section data-auto-animate data-background-size="cover"
+          data-background-image="https://media.giphy.com/media/l2Je4zlfxF6z0IWZi/giphy.gif">
+          <h3 class="title">Frontend anpassen</h3>
+          <small class="title">npm i knex</small>
+        </section>
+        <section data-auto-animate>
+          <h3>Express</h3>
+          <blockquote>Fast, unopinionated, minimalist web framework for Node.js</blockquote>
+        </section>
+      </section> -->
+
+      <section>
+        <h3>Links</h3>
+        <ul>
+
+          <li>
+            <a href="https://github.com/maciossek/crap-stories-node/tree/feature/rest">Backend Repo</a>
+          </li>
+          <li>
+            <a href="https://www.prisma.io/">Prisma</a>
+          </li>
+          <li>
+            <a href="https://sequelize.org/">Sequelize.</a>
+          </li>
+          <li>
+            <a href="https://typeorm.io/">TypeORM</a>
+          </li>
+          <li>
+            <a href="https://vincit.github.io/objection.js/">Objection</a>
+          </li>
+        </ul>
+      </section>
+    </div>
+  </div>
+</body>
+
+</html>
