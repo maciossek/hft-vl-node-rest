@@ -508,7 +508,8 @@
         </section>
         <section data-auto-animate>
           <h3>knexfile.js</h3>
-          <pre><code class="yml" data-trim data-noescape data-line-numbers><script type="text/template">
+          <pre><code class="js" data-trim data-noescape data-line-numbers><script type="text/template">
+            require("dotenv").config();
             const isProd = process.env.NODE_ENV === "production";
 
             const config = {
@@ -576,7 +577,7 @@
         </section>
         <section data-auto-animate>
           <h3>Datenbank Seeds</h3>
-          <pre><code class="yml" data-trim data-noescape data-line-numbers><script type="text/template">
+          <pre><code class="js" data-trim data-noescape data-line-numbers><script type="text/template">
             export async function seed(knex) {
               await knex("story").del();
               
@@ -653,7 +654,7 @@
         <section data-auto-animate>
           <h3>Validation</h3>
           <pre><code class="bash" data-trim data-noescape data-line-numbers><script type="text/template">
-            npm i @hapi/joi express-joi-validation
+            npm i joi express-joi-validation
           </script></code></pre>
         </section>
         <section data-auto-animate>
